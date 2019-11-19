@@ -1,186 +1,78 @@
-import torch.nn as nn
 import torch
-from torch.utils.data import DataLoader
+from torch.autograd import Variable
+import torch.nn.functional as F
+import numpy as np
 import cv2
 import os
+from torch.utils.data import DataLoader
+import cfg
+import dataset_gen
+import ssd
 
-"""Parameters"""
-is_training = True
-MAX_FACES = 10
-learning_rate = 0.1
-num_epochs = 10
-batch_size = 10
-dim = (288, 288)
-MODEL_PATH = r"C:\Maxim\PyCharm Community Edition 2019.2\Projects\AI\Models"
-dataset_path = r"C:\Maxim\PyCharm Community Edition 2019.2\Projects\AI\Datasets"
-
-
-def get_gen(path, face_count, dataset):
-    """inputs: path - dataset path
-    face_count - max faces on the photo
-    returns: a pair of image name and its boxes"""
-    labels = list()
-    boxes = list()
-
-    if dataset == "train":
-        file = os.path.join(path, "train_boxes.txt")
-        im_path = os.path.join(path, "train")
-    elif dataset == "test":
-        file = os.path.join(path, "val_boxes.txt")
-        im_path = os.path.join(path, "val")
-    else:
-        raise RuntimeError("dataset='train' or 'test'")
-
-    with open(file, 'r') as test_file:
-        lines = test_file.read().splitlines()
-        count = len(lines)
-        i = 0
-        max_ph = 1000  # debug thing
-        ph = 0  # debug thing
-
-        while i < count and ph < max_ph:
-            if lines[i].isdigit():
-                if 1 <= int(lines[i]) <= face_count:
-                    box_vector = list()  # faces' coords
-                    labels.append(os.path.join(im_path, lines[i - 1]))
-                    for j in range(i + 1, i + int(lines[i]) + 1):
-                        box_vector += lines[j][1:len(lines[j]) - 1].split(',')
-
-                    box_vector = [int(x) for x in box_vector]
-                    while len(box_vector) < 4 * face_count:
-                        box_vector.append(0)
-
-                    boxes.append(box_vector)
-                    ph += 1
-
-                i += int(lines[i]) + 1
-            else:
-                i += 1
-
-    return labels, boxes
-
-
-class FaceDataset(torch.utils.data.Dataset):
-    """Construct dataset which loads images for batch"""
-    def __init__(self, labels, boxes):
-        self.labels = (labels, [False for i in range(len(labels))])
-        self.boxes = boxes
-
-    def __len__(self):
-        return len(self.boxes)
-
-    def __getitem__(self, index):
-        image = cv2.imread(self.labels[0][index])
-        # Adjusting box coordinates
-        if not self.labels[1][index]:  # checks whether image was used before
-            height, width = image.shape[:2]
-            x_coef = width / dim[0]
-            y_coef = height / dim[1]
-
-            for i_ in range(len(self.boxes[index])):
-                if i_ % 2 == 0:
-                    self.boxes[index][i_] = int(self.boxes[index][i_] / x_coef)
-                else:
-                    self.boxes[index][i_] = int(self.boxes[index][i_] / y_coef)
-            self.labels[1][index] = True
-
-        # Turning photo into a gray
-        image = cv2.resize(image, dim, interpolation=cv2.INTER_AREA)
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
-        image = image.astype("float32") / 255
-        return [image, torch.tensor(self.boxes[index])]
-
-
-# d = torch.utils.data.TensorDataset(torch.tensor(dataset[0]), torch.tensor(dataset[1]))
-train = get_gen(dataset_path, MAX_FACES, dataset="train")
-test = get_gen(dataset_path, MAX_FACES, dataset="test")
-train_dataset = FaceDataset(train[0], train[1])
-test_dataset = FaceDataset(test[0], test[1])
-train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
-
-
-class FaceDetect(torch.nn.Module):
-    def __init__(self):
-        super(FaceDetect, self).__init__()
-        # 288x288
-        self.clayer1 = nn.Sequential(nn.Conv2d(1, 32, kernel_size=12, stride=1, padding=2),
-                                    nn.ReLU(), nn.MaxPool2d(kernel_size=2, stride=2))
-        # 140x140
-        self.clayer2 = nn.Sequential(nn.Conv2d(32, 64, kernel_size=8, stride=1, padding=2),
-                                    nn.ReLU(), nn.MaxPool2d(kernel_size=2, stride=2))
-        self.drop_out = nn.Dropout()
-        # 68x68
-        self.clayer3 = nn.Sequential(nn.Conv2d(64, 64, kernel_size=6, stride=1, padding=2),
-                                    nn.ReLU(), nn.MaxPool2d(kernel_size=2, stride=2))
-        # 33x33
-        self.drop_out = nn.Dropout()
-        self.l1 = nn.Linear(64 * 33 * 33, 512)
-        self.l2 = nn.Linear(512, MAX_FACES * 4)
-
-    def forward(self, x):
-        out = self.clayer1(x)
-        out = self.clayer2(out)
-        out = self.drop_out(out)
-        out = self.clayer3(out)
-        out = out.reshape(out.size(0), -1)
-        # out = out.view(-1, self.num_flat_features(out))
-        out = self.drop_out(out)
-        out = self.l1(out)
-        out = self.l2(out)
-        return out
-
-    def num_flat_features(self, x):
-        size = x.size()[1:]  # all dimensions except the batch dimension
-        num_features = 1
-        for s in size:
-            num_features *= s
-        return num_features
-
-
-"""Training"""
-#device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model = FaceDetect()
-#model.to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-criterion = nn.MSELoss()
-
-log_interval = 1
-loss_list = list()
-for epoch in range(1, num_epochs + 1):
-    if not is_training:
-        break
-    for batch_idx, [images, targets] in enumerate(train_loader, 1):
-        # Forward
-        images = images.unsqueeze(1)
-        # images = images.to(device)
-        # targets = targets.to(device)
-        net_out = model(images.float())
-        loss = criterion(net_out, targets.float())
-        loss_list.append(loss.data.item())
-
-        # Backward
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
-
-        # Accuracy check
-        if batch_idx % log_interval == 0:
-           print('Train Epoch: {} [{}/{} ({:.0f}%)] Loss: {:.6f}'.format(
-                   epoch, batch_idx * len(images), len(train_loader) * batch_size,
-                          100. * batch_idx / len(train_loader), loss.data.item()))
-
-    # Epoch Checkpoints
-    cur_state = {
-        'epoch': epoch,
-        'state_dict': model.state_dict(),
-        'optimizer': optimizer.state_dict(),
-        'criterion': criterion.state_dict()
-        }
-    torch.save(cur_state, os.path.join(MODEL_PATH, str(epoch) + "epmodel.pth"))
-    with open(os.path.join(dataset_path, "loss_list.txt"), 'w') as ls:
-        ls.write(str(loss_list))
-
-    torch.save(model, os.path.join(MODEL_PATH, str(epoch) + "epmodel.pth"))
-
-torch.save(model, os.path.join(MODEL_PATH, "1fmodel.pth"))
+# model = s3fd().cuda()
+# model.load_state_dict(torch.load(os.path.join(utils.MODEL_PATH, "s3fd_convert.pth")))
+# test_im = dataset_gen.transform(os.path.join(utils.DATASET_PATH, "train/49_Greeting_peoplegreeting_49_606.jpg"), resize=False)
+# gg = cv2.imread(os.path.join(utils.DATASET_PATH, "train/49_Greeting_peoplegreeting_49_606.jpg"))
+# #gg = cv2.resize(gg, utils.dim)
+# olist = model(test_im)
+#
+# print(olist[1])
+# bboxlist = []
+# for i in range(len(olist)//2):
+#     olist[i*2] = F.softmax(olist[i*2], dim=1)
+# for i in range(len(olist)//2):
+#     ocls,oreg = olist[i*2].data.cpu(),olist[i*2+1].data.cpu()
+#     FB,FC,FH,FW = ocls.size() # feature map size
+#     stride = 2**(i+2)    # 4,8,16,32,64,128
+#     anchor = stride*4
+#     for Findex in range(FH*FW):
+#         windex,hindex = Findex%FW,Findex//FW
+#         axc,ayc = stride/2+windex*stride,stride/2+hindex*stride
+#         score = ocls[0,1,hindex,windex]
+#         loc = oreg[0,:,hindex,windex].contiguous().view(1,4)
+#         if score<0.05: continue
+#         priors = torch.Tensor([[axc/1.0,ayc/1.0,stride*4/1.0,stride*4/1.0]])
+#         variances = [0.1,0.2]
+#         box = torch.cat((
+#             priors[:, :2] + loc[:, :2] * variances[0] * priors[:, 2:],
+#             priors[:, 2:] * torch.exp(loc[:, 2:] * variances[1])), 1)
+#         box[:, :2] -= box[:, 2:] / 2
+#         box[:, 2:] += box[:, :2]
+#         x1,y1,x2,y2 = box[0]*1.0
+#         #cv2.rectangle(test_im,(int(x1),int(y1)),(int(x2),int(y2)),(0,0,255),1)
+#         bboxlist.append([x1,y1,x2,y2,score])
+# bboxlist = np.array(bboxlist)
+# if 0==len(bboxlist): bboxlist=np.zeros((1, 5))
+#
+#
+# def nms(dets, thresh):
+#     if 0==len(dets): return []
+#     x1,y1,x2,y2,scores = dets[:, 0],dets[:, 1],dets[:, 2],dets[:, 3],dets[:, 4]
+#     areas = (x2 - x1 + 1) * (y2 - y1 + 1)
+#     order = scores.argsort()[::-1]
+#
+#     keep = []
+#     while order.size > 0:
+#         i = order[0]
+#         keep.append(i)
+#         xx1,yy1 = np.maximum(x1[i], x1[order[1:]]),np.maximum(y1[i], y1[order[1:]])
+#         xx2,yy2 = np.minimum(x2[i], x2[order[1:]]),np.minimum(y2[i], y2[order[1:]])
+#
+#         w,h = np.maximum(0.0, xx2 - xx1 + 1),np.maximum(0.0, yy2 - yy1 + 1)
+#         ovr = w*h / (areas[i] + areas[order[1:]] - w*h)
+#
+#         inds = np.where(ovr <= thresh)[0]
+#         order = order[inds + 1]
+#
+#     return keep
+#
+#
+# keep = nms(bboxlist,0.3)
+# bboxlist = bboxlist[keep,:]
+# for b in bboxlist:
+#     x1,y1,x2,y2,s = b
+#     if s<0.5: continue
+#     cv2.rectangle(gg,(int(x1),int(y1)),(int(x2),int(y2)),(0,255,0),1)
+# cv2.imshow('test',gg)
+# cv2.waitKey(0)
+# exit()
