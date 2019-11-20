@@ -64,7 +64,7 @@ def train():
     train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", preproc(img_dim, rgb_mean))
     trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=dataset_gen.detection_collate)
     print("Loading validation dataset...")
-    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val")
+    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val", 500)
     valloader = data.DataLoader(val_dataset, batch_size=BATCH_SIZE, collate_fn=dataset_gen.detection_collate)
 
     start_epoch = 1
@@ -124,7 +124,30 @@ def train():
 
         # Getting validation results
         print("Starting validation check...")
-        # TODO: validation and accuracy
+        val_c_loss = list()
+        val_l_loss = list()
+        val_total_loss = list()
+        with torch.no_grad():
+            for val_ind, [images, v_targets] in enumerate(valloader, 1):
+                v_images = images.to(device)
+                v_targets = [anno.to(device) for anno in v_targets]
+                v_out = net(v_images)
+                val_loss_l, val_loss_c = criterion(v_out, priors, v_targets)
+                val_loss = cfg['loc_weight'] * val_loss_l + val_loss_c
+                print("Batch : {}/{} || L : {:.4f} C: {:.4f} T: {:.4f}".format(
+                    val_ind, len(valloader), val_loss_l.item(), val_loss_c.item(), val_loss.item()))
+                val_c_loss.append(val_loss_c.item())
+                val_loss_l.append(val_loss_l.item())
+                val_total_loss.append(val_loss.item())
+
+            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_conf_loss.txt", 'w+') as f:
+                f.write(str(val_c_loss))
+            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_loc_loss.txt", 'w+') as f:
+                f.write(str(val_l_loss))
+            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_total_loss.txt", 'w+') as f:
+                f.write(str(val_total_loss))
+
+
 
         # Printing graphs TODO: (classif loss for train and val, detection loss for train and val, accuracy for val)
 

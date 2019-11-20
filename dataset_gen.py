@@ -44,9 +44,11 @@ class FaceDataset(data.Dataset):
     def __len__(self):
         return len(self.ids)
 
-    def parse_boxes(self, annotation_path):
+    def parse_boxes(self, annotation_path, max_images=None):
         """
-        :param annotation_path: path where all the boxes written
+        :param
+            annotation_path: path where all the boxes written
+            max_images: maximum images in dataset
         :return: a tuple of (img_path, list(img_boxes, 1)) : here 1 stands for face class labeled with '1'
         """
         imgs = list()
@@ -56,10 +58,10 @@ class FaceDataset(data.Dataset):
             lines = file.read().splitlines()
             count = len(lines)
             i = 0
-            max_ph = 1000000000000000000000  # debug thing
+            # max_ph = 1000000000000000000000  # debug thing
             ph = 0  # debug thing
 
-            while i < count and ph < max_ph:
+            while i < count and (max_images is None or ph < max_images):
                 if lines[i].isdigit():
                     if 1 <= int(lines[i]):
                         box_vector = list()  # faces' coords
