@@ -73,6 +73,9 @@ def train():
 
     save_interaval = 1
     epoch_size = len(train_dataset)
+    loc_loss = list()
+    conf_loss = list()
+    total_loss = list()
 
     print("Staring training...")
     for epoch in range(start_epoch, num_epochs + 1):
@@ -87,13 +90,17 @@ def train():
             # Forward
             out = net(images)
             loss_l, loss_c = criterion(out, priors, targets)
-            # TODO: loss stashing
 
             # Backward
             loss = cfg['loc_weight'] * loss_l + loss_c  # Total loss with alpha
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+
+            # Saving losses
+            loc_loss.append(loss_l.item())
+            conf_loss.append(loss_c.item())
+            total_loss.append(loss.item())
 
             load_t1 = time.time()
             batch_time = load_t1 - load_t0
@@ -105,9 +112,15 @@ def train():
                     epoch, num_epochs, batch_ind * BATCH_SIZE, epoch_size, loss_l.item(),
                     loss_c.item(), learning_rate, batch_time, str(datetime.timedelta(seconds=eta))))
 
-        # Saving weights
+        # Saving weights and losses
         if epoch % save_interaval == 0:
             torch.save(net.state_dict(), cfg['saving_path'] + 'FaceDetection_epoch_' + str(epoch) + '.pth')
+        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_conf_loss.txt", 'w+') as f:
+            f.write(str(conf_loss))
+        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_loc_loss.txt", 'w+') as f:
+            f.write(str(loc_loss))
+        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_total_loss.txt", 'w+') as f:
+            f.write(str(total_loss))
 
         # Getting validation results
         print("Starting validation check...")
