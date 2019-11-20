@@ -74,7 +74,7 @@ def train():
     save_interaval = 1
     epoch_size = len(train_dataset)
 
-    print("Staring training")
+    print("Staring training...")
     for epoch in range(start_epoch, num_epochs + 1):
         for batch_ind, [images, targets] in enumerate(trainloader, 1):
             images = images.to(device)
@@ -102,18 +102,18 @@ def train():
             # Printing results
             print(
                 'Epoch:{}/{} || Images: {}/{} || L: {:.4f} C: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'.format(
-                    epoch, num_epochs, batch_ind * BATCH_SIZE, BATCH_SIZE * epoch_size, loss_l.item(),
+                    epoch, num_epochs, batch_ind * BATCH_SIZE, epoch_size, loss_l.item(),
                     loss_c.item(), learning_rate, batch_time, str(datetime.timedelta(seconds=eta))))
-
-            # Getting validation results
-            print("Starting validation check")
-            # TODO: validation and accuracy
-
-            # Printing graphs TODO: (classif loss for train and val, detection loss for train and val, accuracy for val)
 
         # Saving weights
         if epoch % save_interaval == 0:
             torch.save(net.state_dict(), cfg['saving_path'] + 'FaceDetection_epoch_' + str(epoch) + '.pth')
+
+        # Getting validation results
+        print("Starting validation check...")
+        # TODO: validation and accuracy
+
+        # Printing graphs TODO: (classif loss for train and val, detection loss for train and val, accuracy for val)
 
 
 def adjust_learning_rate(optimizer, epoch, gamma, init_lr):

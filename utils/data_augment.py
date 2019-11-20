@@ -5,6 +5,16 @@ from utils.box_utils import matrix_iof
 
 
 def _crop(image, boxes, labels, img_dim):
+    """Randmoly cut for the least side and trying to make it square
+        :param
+            image - image as a np.array
+            boxes - ground truth boxes for a image
+            labels - class labels '1' by default
+            img_dim - necessary dim
+        :return:
+            cropped image, cropped gt boxes, boxes' labels, flag shows whether image need padding or not
+    """
+
     height, width, _ = image.shape
     pad_image_flag = True
 
@@ -64,7 +74,12 @@ def _crop(image, boxes, labels, img_dim):
 
 
 def _distort(image):
-
+    """Randomly changing contrast, brightness, hues, saturation(насыщенность)
+        :param
+            image - image as a np.array
+        :return:
+            distorted image
+    """
     def _convert(image, alpha=1, beta=0):
         tmp = image.astype(float) * alpha + beta
         tmp[tmp < 0] = 0
@@ -124,33 +139,8 @@ def _distort(image):
     return image
 
 
-def _expand(image, boxes, fill, p):
-    if random.randrange(2):
-        return image, boxes
-
-    height, width, depth = image.shape
-
-    scale = random.uniform(1, p)
-    w = int(scale * width)
-    h = int(scale * height)
-
-    left = random.randint(0, w - width)
-    top = random.randint(0, h - height)
-
-    boxes_t = boxes.copy()
-    boxes_t[:, :2] += (left, top)
-    boxes_t[:, 2:] += (left, top)
-    expand_image = np.empty(
-        (h, w, depth),
-        dtype=image.dtype)
-    expand_image[:, :] = fill
-    expand_image[top:top + height, left:left + width] = image
-    image = expand_image
-
-    return image, boxes_t
-
-
 def _mirror(image, boxes):
+    """Randomly mirrors an image"""
     _, width, _ = image.shape
     if random.randrange(2):
         image = image[:, ::-1]
@@ -160,6 +150,14 @@ def _mirror(image, boxes):
 
 
 def _pad_to_square(image, rgb_mean, pad_image_flag):
+    """Making image square if its needed
+        :param
+            image - image as a np.array
+            rgb_mean - color base
+            pad_image_flag - shows whether image is square
+        :return:
+            squared image
+    """
     if not pad_image_flag:
         return image
     height, width, _ = image.shape
@@ -171,6 +169,14 @@ def _pad_to_square(image, rgb_mean, pad_image_flag):
 
 
 def _resize_subtract_mean(image, insize, rgb_mean):
+    """Turning image to (insize X insize) size
+            :param
+                image - image as a np.array
+                insize - necessary size
+                rgb_mean - color base
+            :return:
+                resized image
+        """
     interp_methods = [cv2.INTER_LINEAR, cv2.INTER_CUBIC, cv2.INTER_AREA, cv2.INTER_NEAREST, cv2.INTER_LANCZOS4]
     interp_method = interp_methods[random.randrange(5)]
     image = cv2.resize(image, (insize, insize), interpolation=interp_method)
@@ -180,7 +186,7 @@ def _resize_subtract_mean(image, insize, rgb_mean):
 
 
 class preproc(object):
-    """Description"""
+    """Making image preparations, cropping, resizing, recoloring"""
     def __init__(self, img_dim, rgb_means):
         self.img_dim = img_dim
         self.rgb_means = rgb_means
