@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import random
-#from utils.box_utils import matrix_iof
+from utils.box_utils import matrix_iof
 
 
 def _crop(image, boxes, labels, img_dim):
@@ -191,12 +191,24 @@ class preproc(object):
         boxes = targets[:, :-1].copy()
         labels = targets[:, -1].copy()
 
+        # Randomly cutting image and trying to make it square (pad flag) (but saving faces)
         image_t, boxes_t, labels_t, pad_image_flag = _crop(image, boxes, labels, self.img_dim)
+
+        # Randomly changing contrast, brightness, hues, saturation(насыщенность)
         image_t = _distort(image_t)
+
+
+        # Finally making image square (if it's necessary)
         image_t = _pad_to_square(image_t, self.rgb_means, pad_image_flag)
+
+        # Randomly mirroring image
         image_t, boxes_t = _mirror(image_t, boxes_t)
+
         height, width, _ = image_t.shape
+
+        # Final resize for (img_dimXimg_dim)
         image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
+
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
 

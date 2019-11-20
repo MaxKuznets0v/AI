@@ -4,7 +4,7 @@ from math import ceil
 
 
 class PriorBox(object):
-    """Creating multiple anchors for each pixel in feature map"""
+    """Creating multiple anchors for each feature point in feature map"""
     def __init__(self, cfg, image_size=None):
         super(PriorBox, self).__init__()
         #self.aspect_ratios = cfg['aspect_ratios']
@@ -36,6 +36,7 @@ class PriorBox(object):
                         cx = (j + 0.5) * self.steps[k] / self.image_size[1]
                         cy = (i + 0.5) * self.steps[k] / self.image_size[0]
                         anchors += [cx, cy, s_kx, s_ky]
+
         # back to torch land
         output = torch.Tensor(anchors).view(-1, 4)
         if self.clip:

@@ -1,4 +1,3 @@
-import math
 import time
 import datetime
 import torch
@@ -9,6 +8,7 @@ from utils.data_augment import preproc
 from utils.priors import PriorBox
 import torch.backends.cudnn as cudnn
 import dataset_gen
+import torch.utils.data as data
 
 #  Getting all the settings
 img_dim = cfg['img_dim']
@@ -49,9 +49,8 @@ device = torch.device("cuda:0" if gpu_train else "cpu")
 net = net.to(device)
 
 optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
-criterion = MultiBoxLoss()  # TODO: loss function
+criterion = MultiBoxLoss(num_classes, 0.35, 7)
 
-# TODO: Prior shiet
 priorbox = PriorBox(cfg, image_size=(img_dim, img_dim))
 with torch.no_grad():
     priors = priorbox.forward()
@@ -61,21 +60,24 @@ with torch.no_grad():
 def train():
     net.train()
     print("Loading train dataset...")
-    # TODO: prepoc things
-    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train")
+
+    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", preproc(img_dim, rgb_mean))
+    trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=dataset_gen.detection_collate)
     print("Loading validation dataset...")
     val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val")
-    # TODO: dataloader
+    valloader = data.DataLoader(val_dataset, batch_size=BATCH_SIZE, collate_fn=dataset_gen.detection_collate)
 
     start_epoch = 1
     if cfg['resume_training'] is not None:
         start_epoch = cfg['resume_training'][1]
 
     save_interaval = 1
-    epoch_size = math.ceil(len(trainloader) / BATCH_SIZE)
+    epoch_size = len(train_dataset)
+
+    print("Staring training")
     for epoch in range(start_epoch, num_epochs + 1):
         for batch_ind, [images, targets] in enumerate(trainloader, 1):
-            images.to(device)
+            images = images.to(device)
             targets = [anno.to(device) for anno in targets]
             load_t0 = time.time()
 
@@ -95,22 +97,23 @@ def train():
 
             load_t1 = time.time()
             batch_time = load_t1 - load_t0
-            eta = batch_time * (BATCH_SIZE - batch_ind) * ((num_epochs - epoch) * BATCH_SIZE)
+            eta = batch_time * (len(trainloader) - batch_ind) * ((num_epochs - epoch) * BATCH_SIZE)
 
-            # Printing iteration results
+            # Printing results
             print(
-                'Epoch:{}/{} || Epochiter: {}/{} || L: {:.4f} C: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'.format(
-                    epoch, num_epochs, batch_ind * BATCH_SIZE, epoch_size, loss_l.item(),
+                'Epoch:{}/{} || Images: {}/{} || L: {:.4f} C: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'.format(
+                    epoch, num_epochs, batch_ind * BATCH_SIZE, BATCH_SIZE * epoch_size, loss_l.item(),
                     loss_c.item(), learning_rate, batch_time, str(datetime.timedelta(seconds=eta))))
 
-            # Saving weights
-            if epoch % save_interaval == 0:
-                torch.save(net.state_dict(), cfg['saving_path'] + 'FaceDetection_epoch_' + str(epoch) + '.pth')
-
             # Getting validation results
+            print("Starting validation check")
             # TODO: validation and accuracy
 
             # Printing graphs TODO: (classif loss for train and val, detection loss for train and val, accuracy for val)
+
+        # Saving weights
+        if epoch % save_interaval == 0:
+            torch.save(net.state_dict(), cfg['saving_path'] + 'FaceDetection_epoch_' + str(epoch) + '.pth')
 
 
 def adjust_learning_rate(optimizer, epoch, gamma, init_lr):
