@@ -61,10 +61,10 @@ def train():
     net.train()
     print("Loading train dataset...")
 
-    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", preproc(img_dim, rgb_mean))
+    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", 100, preproc(img_dim, rgb_mean))
     trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=dataset_gen.detection_collate)
     print("Loading validation dataset...")
-    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val", 500)
+    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val", 100, preproc(img_dim, rgb_mean))
     valloader = data.DataLoader(val_dataset, batch_size=BATCH_SIZE, collate_fn=dataset_gen.detection_collate)
 
     start_epoch = 1
@@ -76,7 +76,9 @@ def train():
     loc_loss = list()
     conf_loss = list()
     total_loss = list()
-
+    val_c_loss = list()
+    val_l_loss = list()
+    val_total_loss = list()
     print("Staring training...")
     for epoch in range(start_epoch, num_epochs + 1):
         for batch_ind, [images, targets] in enumerate(trainloader, 1):
@@ -114,19 +116,16 @@ def train():
 
         # Saving weights and losses
         if epoch % save_interaval == 0:
-            torch.save(net.state_dict(), cfg['saving_path'] + 'FaceDetection_epoch_' + str(epoch) + '.pth')
-        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_conf_loss.txt", 'w+') as f:
+            torch.save(net.state_dict(), cfg['saving_path'] + '/FaceDetection_epoch_' + str(epoch) + '.pth')
+        with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_conf_loss.txt", 'w+') as f:
             f.write(str(conf_loss))
-        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_loc_loss.txt", 'w+') as f:
+        with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_loc_loss.txt", 'w+') as f:
             f.write(str(loc_loss))
-        with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_total_loss.txt", 'w+') as f:
+        with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_total_loss.txt", 'w+') as f:
             f.write(str(total_loss))
 
         # Getting validation results
         print("Starting validation check...")
-        val_c_loss = list()
-        val_l_loss = list()
-        val_total_loss = list()
         with torch.no_grad():
             for val_ind, [images, v_targets] in enumerate(valloader, 1):
                 v_images = images.to(device)
@@ -137,19 +136,27 @@ def train():
                 print("Batch : {}/{} || L : {:.4f} C: {:.4f} T: {:.4f}".format(
                     val_ind, len(valloader), val_loss_l.item(), val_loss_c.item(), val_loss.item()))
                 val_c_loss.append(val_loss_c.item())
-                val_loss_l.append(val_loss_l.item())
+                val_l_loss.append(val_loss_l.item())
                 val_total_loss.append(val_loss.item())
 
-            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_conf_loss.txt", 'w+') as f:
+            with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_conf_loss.txt", 'w+') as f:
                 f.write(str(val_c_loss))
-            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_loc_loss.txt", 'w+') as f:
+            with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_loc_loss.txt", 'w+') as f:
                 f.write(str(val_l_loss))
-            with open(cfg['saving_path'] + "/stats/Epoch_" + str(epoch) + "_val_total_loss.txt", 'w+') as f:
+            with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_total_loss.txt", 'w+') as f:
                 f.write(str(val_total_loss))
 
+        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_conf_loss.txt"
+        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_conf_loss.txt"
+        save_graph(tr, v, epoch, 'green', 'blue', "Confidence loss")
 
+        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_loc_loss.txt"
+        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_loc_loss.txt"
+        save_graph(tr, v, epoch, 'green', 'blue', "Location loss")
 
-        # Printing graphs TODO: (classif loss for train and val, detection loss for train and val, accuracy for val)
+        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_total_loss.txt"
+        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_total_loss.txt"
+        save_graph(tr, v, epoch, 'green', 'blue', "Total loss")
 
 
 def adjust_learning_rate(optimizer, epoch, gamma, init_lr):
@@ -157,5 +164,28 @@ def adjust_learning_rate(optimizer, epoch, gamma, init_lr):
     lr = init_lr * (gamma ** (epoch // 10))
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
+
+
+def save_graph(train_file, val_file, epoch, train_color, val_color, label):
+    from matplotlib import pyplot as plt
+    with open(train_file, 'r') as f:
+        y_data = str(f.readline())
+        y_data = y_data[1:len(y_data) - 1].split(',')
+        y_data = [float(y) for y in y_data]
+
+    with open(val_file, 'r') as f:
+        vy_data = str(f.readline())
+        vy_data = vy_data[1:len(vy_data) - 1].split(',')
+        vy_data = [float(y) for y in vy_data]
+    x_data = [int(x) for x in range(1, len(y_data) + 1)]
+
+    fig, ax = plt.subplots()  # будет 1 график, на нем:
+    ax.plot(x_data, y_data, label="Train " + label, color=train_color)
+    ax.plot(x_data, vy_data, label="Val " + label, color=val_color)
+    ax.set_xlabel("Batches")  # подпись у горизонтальной оси х
+    ax.set_ylabel(label)  # подпись у вертикальной оси y
+    ax.legend()  # показывать условные обозначения
+
+    fig.savefig(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_" + label + "_graph.png")
 
 train()

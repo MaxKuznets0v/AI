@@ -1,6 +1,7 @@
 cfg = {
     'dataset_path' : "C:/Maxim/Repositories/AI/Datasets",
     'saving_path' : "C:/Maxim/Repositories/AI/Models",
+    'stats_path' : "C:/Maxim/Repositories/AI/utils/stats",
     'batch_size' : 20,
     'num_epochs' : 100,
     'learning_rate' : 1e-3,

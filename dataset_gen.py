@@ -19,15 +19,16 @@ class FaceDataset(data.Dataset):
                 target `annotation`
                 (eg: take in caption string, return tensor of word indices)
         """
-    def __init__(self, dataset_path, phase, preproc=None):
+    def __init__(self, dataset_path, phase, max_images=None, preproc=None):
         self.dataset_path = dataset_path
         self.preproc = preproc
+        self.max_images = max_images
         if phase != "train" and phase != "test" and phase != "val":
             raise RuntimeError("Wrong phase! (Type train, test ot val)")
 
         self.img_path = os.path.join(self.dataset_path, phase + "/%s")
         anno_path = os.path.join(self.dataset_path, phase + "_boxes.txt")
-        self.ids = self.parse_boxes(anno_path)  # actual iterable object
+        self.ids = self.parse_boxes(anno_path, self.max_images)  # actual iterable object
 
     def __getitem__(self, index):
         img_id = self.ids[index]
