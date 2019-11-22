@@ -10,7 +10,6 @@ from utils.config import cfg
 
 def detect_faces(img_path, save_path=None):
     # Loading pretrained model
-    print("Loading pretrained model...")
     net = FaceDetectionSSD("test", cfg['img_dim'], cfg['num_classes'])
     net.load_state_dict(torch.load(cfg['pretrained_model']))
     net.eval()
@@ -22,6 +21,9 @@ def detect_faces(img_path, save_path=None):
 
     # Processing image
     init_im = cv2.imread(img_path, cv2.IMREAD_COLOR)
+    if init_im is None:
+        raise RuntimeError("Image does not exist!")
+
     image = np.float32(init_im)
     im_height, im_width, _ = image.shape
     scale = torch.Tensor([image.shape[1], image.shape[0], image.shape[1], image.shape[0]])
@@ -60,11 +62,12 @@ def detect_faces(img_path, save_path=None):
 
     # keep top-K faster NMS
     dets = dets[:cfg["keep_top_k"], :]
-
+    face_count = 0
     # Show image and saving image results
     for b in dets:
         if b[4] < cfg['min_for_visual']:
             continue
+        face_count += 1
         text = "{:.4f}".format(b[4])
         b = list(b)
         for i in range(4): b[i] = int(b[i])
@@ -75,8 +78,9 @@ def detect_faces(img_path, save_path=None):
                     cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
     if save_path is not None:
         cv2.imwrite(save_path, init_im)
-
+    print("Detection completed!")
+    print(f"Found {face_count} faces!")
     return init_im
 
 
-res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/IMG_3918.jpg", "C:/Maxim/test.jpg")
+res = detect_faces("C:/Users/Maxim Kuznetsov/Desktop/tgs2jDTsKW0.jpg", "C:/Maxim/testA.jpg")
