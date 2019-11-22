@@ -78,10 +78,10 @@ for i, img_path in enumerate(images):
     for b in dets:
         if b[4] < cfg['min_for_visual']:
             continue
-        text = "{:.4f}".format(b[4])
+        text = "Conf:{:.2f}%".format(b[4] * 100)
         b = list(b)
         for i in range(4): b[i] = int(b[i])
-        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
+        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 255, 0), 2)
         with open(save_file) as f:
             f.write(str(b) + '\n')
         cx = b[0]

@@ -9,11 +9,11 @@ from utils.config import cfg
 
 
 def detect_faces(img_path, save_path=None):
+    print("Starting detection...")
     # Loading pretrained model
     net = FaceDetectionSSD("test", cfg['img_dim'], cfg['num_classes'])
     net.load_state_dict(torch.load(cfg['pretrained_model']))
     net.eval()
-    print(net)
     cudnn.benchmark = True
     device = torch.device("cuda:0" if cfg['gpu_train'] else "cpu")
     net.to(device)
@@ -68,12 +68,12 @@ def detect_faces(img_path, save_path=None):
         if b[4] < cfg['min_for_visual']:
             continue
         face_count += 1
-        text = "{:.4f}".format(b[4])
+        text = "Conf:{:.2f}%".format(b[4] * 100)
         b = list(b)
         for i in range(4): b[i] = int(b[i])
-        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 0, 255), 2)
+        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 255, 0), 2)
         cx = b[0]
-        cy = b[1] + 12
+        cy = b[1] - 5
         cv2.putText(init_im, text, (cx, cy),
                     cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
     if save_path is not None:
@@ -83,4 +83,5 @@ def detect_faces(img_path, save_path=None):
     return init_im
 
 
-res = detect_faces("C:/Users/Maxim Kuznetsov/Desktop/tgs2jDTsKW0.jpg", "C:/Maxim/testA.jpg")
+res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/IMG_3046.jpg", "C:/Maxim/testCutie.jpg")
+#res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/2018/IMG_2814.jpg", "C:/Maxim/testNav.jpg")
