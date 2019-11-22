@@ -58,7 +58,7 @@ class CRelu(nn.Module):
 
 
 class FaceDetectionSSD(nn.Module):
-    def __init__(self, phase, size, num_classes):
+    def __init__(self, phase, size=None, num_classes=2):
         """
         :param phase: test or train
         :param size: img size (sizex*)

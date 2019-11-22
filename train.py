@@ -1,5 +1,3 @@
-import time
-import datetime
 import torch
 from utils.config import cfg
 from ssd import FaceDetectionSSD
@@ -61,10 +59,10 @@ def train():
     net.train()
     print("Loading train dataset...")
 
-    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", 100, preproc(img_dim, rgb_mean))
+    train_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "train", preproc=preproc(img_dim, rgb_mean))
     trainloader = data.DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, collate_fn=dataset_gen.detection_collate)
     print("Loading validation dataset...")
-    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val", 100, preproc(img_dim, rgb_mean))
+    val_dataset = dataset_gen.FaceDataset(cfg['dataset_path'], "val", max_images=3000, preproc=preproc(img_dim, rgb_mean))
     valloader = data.DataLoader(val_dataset, batch_size=BATCH_SIZE, collate_fn=dataset_gen.detection_collate)
 
     start_epoch = 1
@@ -84,7 +82,6 @@ def train():
         for batch_ind, [images, targets] in enumerate(trainloader, 1):
             images = images.to(device)
             targets = [anno.to(device) for anno in targets]
-            load_t0 = time.time()
 
             # Adjusting learning rate with the time
             adjust_learning_rate(optimizer, epoch, gamma, learning_rate)
@@ -104,15 +101,11 @@ def train():
             conf_loss.append(loss_c.item())
             total_loss.append(loss.item())
 
-            load_t1 = time.time()
-            batch_time = load_t1 - load_t0
-            eta = batch_time * (len(trainloader) - batch_ind) * ((num_epochs - epoch) * BATCH_SIZE)
-
             # Printing results
             print(
-                'Epoch:{}/{} || Images: {}/{} || L: {:.4f} C: {:.4f} || LR: {:.8f} || Batchtime: {:.4f} s || ETA: {}'.format(
+                'Epoch:{}/{} || Images: {}/{} || L: {:.4f} C: {:.4f} T: {:.4f}|| LR: {:.8f}'.format(
                     epoch, num_epochs, batch_ind * BATCH_SIZE, epoch_size, loss_l.item(),
-                    loss_c.item(), learning_rate, batch_time, str(datetime.timedelta(seconds=eta))))
+                    loss_c.item(), loss.item(), learning_rate))
 
         # Saving weights and losses
         if epoch % save_interaval == 0:
@@ -146,17 +139,17 @@ def train():
             with open(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_total_loss.txt", 'w+') as f:
                 f.write(str(val_total_loss))
 
-        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_conf_loss.txt"
-        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_conf_loss.txt"
-        save_graph(tr, v, epoch, 'green', 'blue', "Confidence loss")
+        c = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_conf_loss.txt"
+        l = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_loc_loss.txt"
+        save_graph(c, l, epoch, 'green', 'blue', "Train loss")
 
-        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_loc_loss.txt"
-        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_loc_loss.txt"
-        save_graph(tr, v, epoch, 'green', 'blue', "Location loss")
+        c = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_loc_loss.txt"
+        l = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_conf_loss.txt"
+        save_graph(c, l, epoch, 'green', 'blue', "Validation loss")
 
-        tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_total_loss.txt"
-        v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_total_loss.txt"
-        save_graph(tr, v, epoch, 'green', 'blue', "Total loss")
+        # tr = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_total_loss.txt"
+        # v = cfg['stats_path'] + "/Epoch_" + str(epoch) + "_val_total_loss.txt"
+        # save_graph(tr, v, epoch, 'green', 'blue', "Total loss")
 
 
 def adjust_learning_rate(optimizer, epoch, gamma, init_lr):
@@ -166,26 +159,27 @@ def adjust_learning_rate(optimizer, epoch, gamma, init_lr):
         param_group['lr'] = lr
 
 
-def save_graph(train_file, val_file, epoch, train_color, val_color, label):
+def save_graph(conf, loc, epoch, conf_color, loc_color, label):
     from matplotlib import pyplot as plt
-    with open(train_file, 'r') as f:
+    with open(conf, 'r') as f:
         y_data = str(f.readline())
         y_data = y_data[1:len(y_data) - 1].split(',')
         y_data = [float(y) for y in y_data]
-
-    with open(val_file, 'r') as f:
-        vy_data = str(f.readline())
-        vy_data = vy_data[1:len(vy_data) - 1].split(',')
-        vy_data = [float(y) for y in vy_data]
     x_data = [int(x) for x in range(1, len(y_data) + 1)]
+    with open(loc, 'r') as f:
+        ly_data = str(f.readline())
+        ly_data = ly_data[1:len(ly_data) - 1].split(',')
+        ly_data = [float(y) for y in ly_data]
 
-    fig, ax = plt.subplots()  # будет 1 график, на нем:
-    ax.plot(x_data, y_data, label="Train " + label, color=train_color)
-    ax.plot(x_data, vy_data, label="Val " + label, color=val_color)
-    ax.set_xlabel("Batches")  # подпись у горизонтальной оси х
-    ax.set_ylabel(label)  # подпись у вертикальной оси y
-    ax.legend()  # показывать условные обозначения
+    fig, ax = plt.subplots()
+    ax.set_title(label)
+    ax.plot(x_data, y_data, label="Confidence loss", color=conf_color)
+    ax.plot(x_data, ly_data, label="Location loss", color=loc_color)
+    ax.set_xlabel("Batches")
+    ax.set_ylabel("Loss")
+    ax.legend()
 
     fig.savefig(cfg['stats_path'] + "/Epoch_" + str(epoch) + "_" + label + "_graph.png")
+
 
 train()

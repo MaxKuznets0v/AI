@@ -187,8 +187,9 @@ def _resize_subtract_mean(image, insize, rgb_mean):
 
 class preproc(object):
     """Making image preparations, cropping, resizing, recoloring"""
-    def __init__(self, img_dim, rgb_means):
+    def __init__(self, img_dim, rgb_means, phase=None):
         self.img_dim = img_dim
+        self.phase = phase
         self.rgb_means = rgb_means
 
     def __call__(self, image, targets):
@@ -196,19 +197,23 @@ class preproc(object):
 
         boxes = targets[:, :-1].copy()
         labels = targets[:, -1].copy()
+        if self.phase != "test":
+            # Randomly cutting image and trying to make it square (pad flag) (but saving faces)
+            image_t, boxes_t, labels_t, pad_image_flag = _crop(image, boxes, labels, self.img_dim)
 
-        # Randomly cutting image and trying to make it square (pad flag) (but saving faces)
-        image_t, boxes_t, labels_t, pad_image_flag = _crop(image, boxes, labels, self.img_dim)
-
-        # Randomly changing contrast, brightness, hues, saturation(насыщенность)
-        image_t = _distort(image_t)
+            # Randomly changing contrast, brightness, hues, saturation(насыщенность)
+            image_t = _distort(image_t)
 
 
-        # Finally making image square (if it's necessary)
-        image_t = _pad_to_square(image_t, self.rgb_means, pad_image_flag)
+            # Finally making image square (if it's necessary)
+            image_t = _pad_to_square(image_t, self.rgb_means, pad_image_flag)
 
-        # Randomly mirroring image
-        image_t, boxes_t = _mirror(image_t, boxes_t)
+            # Randomly mirroring image
+            image_t, boxes_t = _mirror(image_t, boxes_t)
+        else:
+            image_t = image
+            boxes_t = boxes
+            labels_t = labels
 
         height, width, _ = image_t.shape
 
