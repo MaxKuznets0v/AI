@@ -2,22 +2,18 @@ import cv2
 import os
 import torch
 import torch.utils.data as data
-from utils.config import cfg
 import numpy as np
 
-WIDER_CLASSES = ( '__background__', 'face')
+WIDER_CLASSES = ('__background__', 'face', 'hand', 'circle', 'straight')
 
 
 class FaceDataset(data.Dataset):
     """Face Detection Dataset Object
-
-        input is image, target is annotation
-
-        :param
-            dataset_path (string): filepath to WIDER folder
-            target_transform (callable, optional): transformation to perform on the
-                target `annotation`
-                (eg: take in caption string, return tensor of word indices)
+        :param:
+        dataset_path: path to dataset
+        phase: could be 'train' or 'test' or 'val'
+        max_images: maximum images in dataset
+        prepoc: prepocessing algorithm for each photo
         """
     def __init__(self, dataset_path, phase, max_images=None, preproc=None):
         self.dataset_path = dataset_path
@@ -59,8 +55,7 @@ class FaceDataset(data.Dataset):
             lines = file.read().splitlines()
             count = len(lines)
             i = 0
-            # max_ph = 1000000000000000000000  # debug thing
-            ph = 0  # debug thing
+            ph = 0
 
             while i < count and (max_images is None or ph < max_images):
                 if lines[i].isdigit():
@@ -85,11 +80,10 @@ class FaceDataset(data.Dataset):
 
     def target_transform(self, target):
         """
+        stacks each target in one np array
         Transforms a list(img_box, 1) annotation into a Tensor of bbox coords and label index
-        Initilized with a dictionary lookup of classnames to indexes
         :returns
-            tensor associated with image and target [faces_number, 5] where 5 stands for [xmin, ymin, xmax, ymax, class_num]
-        images are 1024x*
+            np array associated with image size [faces_num, 5]
         """
         res = np.empty((0, 5))
         for box in target:
@@ -99,16 +93,14 @@ class FaceDataset(data.Dataset):
 
 
 def detection_collate(batch):
-    """Custom collate fn for dealing with batches of images that have a different
-    number of associated object annotations (bounding boxes).
+    """
+        Collate function is used if images in a batch have a different number
+        of object
 
-    Arguments:
-        batch: (tuple) A tuple of tensor images and lists of annotations
-
-    Return:
-        A tuple containing:
-            1) (tensor) batch of images stacked on their 0 dim
-            2) (list of tensors) annotations for a given image are stacked on 0 dim
+    :param:
+        batch: list of images with its annotations
+    :returns:
+        tuple (images tensor, list of tensors for each image)
     """
     targets = []
     imgs = []
@@ -119,5 +111,5 @@ def detection_collate(batch):
             elif isinstance(tup, type(np.empty(0))):
                 annos = torch.from_numpy(tup).float()
                 targets.append(annos)
-
-    return (torch.stack(imgs, 0), targets)
+    res = (torch.stack(imgs, 0), targets)
+    return res

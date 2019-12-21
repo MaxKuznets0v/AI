@@ -19,7 +19,7 @@ device = torch.device("cuda:0" if cfg['gpu_train'] else "cpu")
 net.to(device)
 
 # Opening saving file
-save_file = os.path.join(cfg['test_results'], "test_output.txt"), 'w'
+save_file = os.path.join(cfg['test_results'], "test_output.txt")
 rgb_mean = (104, 117, 123)  # BGR order
 
 # Setting up testing dataset
@@ -32,7 +32,8 @@ with open(os.path.join(cfg['dataset_path'], "test_boxes.txt")) as test_boxes:
 
 # Testing
 print("Starting testing...")
-for i, img_path in enumerate(images):
+for i, img_path in enumerate(images[8000:]):
+    print("Testing photo: " + img_path)
     init_im = cv2.imread(img_path, cv2.IMREAD_COLOR)
     image = np.float32(init_im)
     im_height, im_width, _ = image.shape
@@ -65,29 +66,34 @@ for i, img_path in enumerate(images):
 
     # do NMS
     dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
-    # keep = py_cpu_nms(dets, args.nms_threshold)
     keep_ind, keep_count = nms(torch.from_numpy(boxes.astype(np.float32)), torch.from_numpy(scores.astype(np.float32)), cfg["nms_threshold"], cfg['keep_top_k'])
     dets = dets[keep_ind[:keep_count], :]
+
+    if len(dets.shape) == 1:
+        dets = dets[np.newaxis, :]  # Adding second dim (if only 1 det)
 
     # keep top-K faster NMS
     dets = dets[:cfg["keep_top_k"], :]
 
     # Show image and saving image results
-    with open(save_file) as f:
+    with open(save_file, 'a') as f:
         f.write(str(img_path) + ":\n")
     for b in dets:
         if b[4] < cfg['min_for_visual']:
             continue
-        text = "Conf:{:.2f}%".format(b[4] * 100)
+        text = "{:.2f}%".format(b[4] * 100)
         b = list(b)
         for i in range(4): b[i] = int(b[i])
         cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 255, 0), 2)
-        with open(save_file) as f:
+        with open(save_file, 'a') as f:
             f.write(str(b) + '\n')
         cx = b[0]
-        cy = b[1] + 12
+        cy = b[1] - 5
         cv2.putText(init_im, text, (cx, cy),
                     cv2.FONT_HERSHEY_DUPLEX, 0.5, (255, 255, 255))
     if cfg["show_image"]:
         cv2.imshow('res', init_im)
         cv2.waitKey(0)
+        # save = input()
+        # if save != 'n':
+        #     cv2.imwrite("C:/Maxim/Repositories/AI/BadPred/" + save + '.png', init_im)

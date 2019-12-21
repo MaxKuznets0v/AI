@@ -55,7 +55,6 @@ def detect_faces(img_path, save_path=None):
 
     # do NMS
     dets = np.hstack((boxes, scores[:, np.newaxis])).astype(np.float32, copy=False)
-    # keep = py_cpu_nms(dets, args.nms_threshold)
     keep_ind, keep_count = nms(torch.from_numpy(boxes.astype(np.float32)), torch.from_numpy(scores.astype(np.float32)),
                                cfg["nms_threshold"], cfg['keep_top_k'])
     dets = dets[keep_ind[:keep_count], :]
@@ -68,10 +67,10 @@ def detect_faces(img_path, save_path=None):
         if b[4] < cfg['min_for_visual']:
             continue
         face_count += 1
-        text = "Conf:{:.2f}%".format(b[4] * 100)
+        text = "{:.2f}%".format(b[4] * 100)
         b = list(b)
         for i in range(4): b[i] = int(b[i])
-        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 255, 0), 2)
+        cv2.rectangle(init_im, (b[0], b[1]), (b[2], b[3]), (0, 255, 255), 2)
         cx = b[0]
         cy = b[1] - 5
         cv2.putText(init_im, text, (cx, cy),
@@ -83,5 +82,5 @@ def detect_faces(img_path, save_path=None):
     return init_im
 
 
-res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/IMG_3046.jpg", "C:/Maxim/testCutie.jpg")
+res = detect_faces("C:/Maxim/Repositories/AI/Datasets/test/35_Basketball_basketballgame_ball_35_60.jpg", "C:/Maxim/res3.png")
 #res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/2018/IMG_2814.jpg", "C:/Maxim/testNav.jpg")

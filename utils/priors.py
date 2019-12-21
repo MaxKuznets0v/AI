@@ -7,7 +7,6 @@ class PriorBox(object):
     """Creating multiple anchors for each feature point in feature map"""
     def __init__(self, cfg, image_size=None):
         super(PriorBox, self).__init__()
-        #self.aspect_ratios = cfg['aspect_ratios']
         self.min_sizes = cfg['min_sizes']
         self.steps = cfg['steps']
         self.clip = cfg['clip']

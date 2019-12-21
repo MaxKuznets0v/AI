@@ -5,11 +5,11 @@ from utils.box_utils import matrix_iof
 
 
 def _crop(image, boxes, labels, img_dim):
-    """Randmoly cut for the least side and trying to make it square
+    """Randmoly crops image and makes it square
         :param
             image - image as a np.array
             boxes - ground truth boxes for a image
-            labels - class labels '1' by default
+            labels - class labels ('1' by default)
             img_dim - necessary dim
         :return:
             cropped image, cropped gt boxes, boxes' labels, flag shows whether image need padding or not
@@ -186,7 +186,7 @@ def _resize_subtract_mean(image, insize, rgb_mean):
 
 
 class preproc(object):
-    """Making image preparations, cropping, resizing, recoloring"""
+    """Making image preprocessing: cropping, resizing, recoloring"""
     def __init__(self, img_dim, rgb_means, phase=None):
         self.img_dim = img_dim
         self.phase = phase
@@ -198,12 +198,11 @@ class preproc(object):
         boxes = targets[:, :-1].copy()
         labels = targets[:, -1].copy()
         if self.phase != "test":
-            # Randomly cutting image and trying to make it square (pad flag) (but saving faces)
+            # Randomly cutting image (but saving faces)
             image_t, boxes_t, labels_t, pad_image_flag = _crop(image, boxes, labels, self.img_dim)
 
             # Randomly changing contrast, brightness, hues, saturation(насыщенность)
             image_t = _distort(image_t)
-
 
             # Finally making image square (if it's necessary)
             image_t = _pad_to_square(image_t, self.rgb_means, pad_image_flag)
@@ -217,9 +216,8 @@ class preproc(object):
 
         height, width, _ = image_t.shape
 
-        # Final resize for (img_dimXimg_dim)
+        # resize for (img_dimXimg_dim)
         image_t = _resize_subtract_mean(image_t, self.img_dim, self.rgb_means)
-
         boxes_t[:, 0::2] /= width
         boxes_t[:, 1::2] /= height
 

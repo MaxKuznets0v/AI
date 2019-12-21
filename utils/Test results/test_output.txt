@@ -1,2 +1,0 @@
-C:/Maxim/Repositories/AI/Datasets/test/0_Parade_marchingband_1_737.jpg:
-[543, 259, 619, 356, 0.6961745]

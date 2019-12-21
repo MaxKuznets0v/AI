@@ -192,6 +192,7 @@ def matrix_iou(a, b):
 
 def matrix_iof(a, b):
     """
+    Inverse occurence frequency
     return iof of a and b, numpy version for data augenmentation
     """
     lt = np.maximum(a[:, np.newaxis, :2], b[:, :2])
