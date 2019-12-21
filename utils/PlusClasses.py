@@ -9,7 +9,6 @@ from utils.priors import PriorBox
 import torch.backends.cudnn as cudnn
 import dataset_gen
 import torch.utils.data as data
-import random
 
 
 class PlusDataset(data.Dataset):
@@ -118,19 +117,7 @@ def train():
 
     print('Loading resume network...')
     state_dict = torch.load(cfg['resume_training'][0])
-    # create new OrderedDict that does not contain `module.`
-    from collections import OrderedDict
-
-    # copying all the layers and theirs weights
-    new_state_dict = OrderedDict()
-    for k, v in state_dict.items():
-        head = k[:7]
-        if head == 'module.':
-            name = k[7:]  # remove `module.`
-        else:
-            name = k
-        new_state_dict[name] = v
-    net.load_state_dict(new_state_dict)
+    net.load_state_dict(state_dict)
 
     # Setting net config
     cudnn.benchmark = True  # Could probably improve computation speed
@@ -258,56 +245,3 @@ def save_graph(conf, loc, epoch, conf_color, loc_color, label):
 
 if __name__ == '__main__':
     train()
-    # hand_dataset = PlusDataset(circle_path, anno_circle, label=3, preproc=preproc(img_dim, rgb_mean))
-    # # rotation images
-    # for [path, boxes] in hand_dataset.ids:
-    #     img = cv2.imread(path)
-    #     h, w = img.shape[:2]  # image shape has 3 dimensions
-    #     center = (w / 2, h / 2)
-    #     for i in range(3):
-    #         new_path = path[:len(path) - 4] + f'_r{i}.jpg'
-    #         angle = random.uniform(-5, 5)
-    #         M = cv2.getRotationMatrix2D(center, angle, 1.0)
-    #         rotated = cv2.warpAffine(img, M, (w, h))
-    #         cv2.imwrite(new_path, rotated)
-    #         with open(anno_circle, 'a') as file:
-    #             file.write(new_path + '\n')
-    #             file.write(str(len(boxes)) + '\n')
-    #             for box in boxes:
-    #                 file.write(f"{str(box[0])} {str(box[3])} {str(box[2])} {str(box[1])}\n")
-    # ---
-    # imgs = list()
-    # boxes = list()
-    # with open("C:/Maxim/Repositories/AI/Datasets/train_boxes.txt", 'r') as file:
-    #     lines = file.read().splitlines()
-    #     count = len(lines)
-    #     i = 0
-    #     max_photos = 500
-    #     cc = 0
-    #     max_on_photo = 20
-    #     while i < count and cc < max_photos:
-    #         if lines[i].isdigit():
-    #             if 1 <= int(lines[i]) <= max_on_photo:
-    #                 box_vector = list()
-    #                 imgs.append(lines[i - 1])
-    #                 cc += 1
-    #                 for j in range(i + 1, i + int(lines[i]) + 1):
-    #                     cur_box = lines[j][1:len(lines[j]) - 1].split(',')
-    #                     cur_box = [int(x) for x in cur_box]
-    #
-    #                     # cur_box = [cur_box[0], cur_box[3], cur_box[2], cur_box[1],
-    #                     #            1]  # [xmin, ymin, xmax, ymax, 2] where 1 states for class '1' - face
-    #
-    #                     box_vector.append(cur_box)
-    #
-    #                 boxes.append(box_vector)
-    #
-    #             i += int(lines[i]) + 1
-    #         else:
-    #             i += 1
-    # with open("C:/Maxim/Repositories/AI/Datasets/More classes/mixedT.txt", 'a+') as file:
-    #     for i in range(len(imgs)):
-    #         file.write("C:/Maxim/Repositories/AI/Datasets/train/" + imgs[i] + '\n')
-    #         file.write(str(len(boxes[i])) + '\n')
-    #         for box in boxes[i]:
-    #             file.write(f"{str(box[0])} {str(box[3])} {str(box[2])} {str(box[1])} {str(1)}\n")

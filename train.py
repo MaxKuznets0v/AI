@@ -30,18 +30,7 @@ def train():
         print('Loading resume network...')
         print(cfg['resume_training'])
         state_dict = torch.load(cfg['resume_training'][0])
-        # create new OrderedDict that does not contain `module.`
-        from collections import OrderedDict
-        # copying all the layers and theirs weights
-        new_state_dict = OrderedDict()
-        for k, v in state_dict.items():
-            head = k[:7]
-            if head == 'module.':
-                name = k[7:]  # remove `module.`
-            else:
-                name = k
-            new_state_dict[name] = v
-        net.load_state_dict(new_state_dict)
+        net.load_state_dict(state_dict)
 
     # Setting net config
     cudnn.benchmark = True  # Could probably improve computation speed
