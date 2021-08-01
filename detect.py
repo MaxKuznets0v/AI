@@ -60,7 +60,11 @@ def detect_faces(img_path, save_path=None):
     dets = dets[keep_ind[:keep_count], :]
 
     # keep top-K faster NMS
-    dets = dets[:cfg["keep_top_k"], :]
+    try:
+        dets = dets[:cfg["keep_top_k"], :]
+    except:
+        dets = dets.reshape((1, dets.size))[:cfg["keep_top_k"], :]
+
     face_count = 0
     # Show image and saving image results
     for b in dets:
@@ -80,7 +84,3 @@ def detect_faces(img_path, save_path=None):
     print("Detection completed!")
     print(f"Found {face_count} faces!")
     return init_im
-
-
-res = detect_faces("C:/Maxim/Repositories/AI/Datasets/test/35_Basketball_basketballgame_ball_35_60.jpg", "C:/Maxim/res3.png")
-#res = detect_faces("C:/Users/Maxim Kuznetsov/Pictures/iCloud Photos/Downloads/2018/IMG_2814.jpg", "C:/Maxim/testNav.jpg")
